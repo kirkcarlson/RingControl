@@ -1,0 +1,153 @@
+<!DOCTYPE>
+<html>
+  <head>
+    <link rel="stylesheet" type="text/css" href="RingControl.css">
+    <script src="Config.js"></script>
+    <script src="RingControl.js"></script>
+  </head>
+  <body>
+    <form id="particle">
+          <input id="arg" type="hidden" name="arg" value="">
+    </form>
+  <center>
+  <br>
+  <br>
+  <br>
+  Tell your LED ring what to do!<br>
+    <ul>
+        <li>
+            <input type="radio" id="onOff" name="onOff" value="n" onChange="handleSelect();">Turn the LED on.
+        </li>
+        <li>
+            <input type="radio" id="onOff" name="onOff" value="f" onChange="handleSelect();">Turn the LED off.
+        </li>
+        <li>
+            <label for="mode">Mode</label>
+            <select id="mode" name="mode" onChange="handleSelect();">
+                <option value="offMode" selected>Please choose</option>
+                <option value="offMode">Off</option>
+                <option value="singleColor">Single Color</option>
+                <option value="staticMultiColor">Multi Color</option>
+                <option value="twinklingMultiColor">Twinkling Multi Color</option>
+                <option value="staticRainbow">Rainbow</option>
+                <option value="staticWheel">Color Wheel</option>
+                <option value="colorWave">Color Wave</option>
+                <option value="clockFace">Clock</option>
+                <option value="marqueeLeft">Marquee Left</option>
+                <option value="marqueeRight">Marquee Right</option>
+                <option value="allFlash">All Flash</option>
+                <option value="quadFlasher">Quad Flasher</option>
+                <option value="quadFlasher2">Quad Flasher 2</option>
+                <option value="octoFlasher">Octo Flasher</option>
+                <option value="circulator">Circulator</option>
+                <option value="singleColorBreath">Single Color Breath</option>
+                <option value="flashSynched">Flash Synched</option>
+                <option value="flashPhased">Flash Phased</option>
+                <option value="winkSynched">Wink Synched</option>
+                <option value="winkPhased">Wink Phased</option>
+                <option value="blinkSynched">Blink Synched</option>
+                <option value="blinkPhased">Blink Phased</option>
+                <option value="meteorSynched">Meteor Synched</option>
+                <option value="meteorPhased">Meteor Phased</option>
+            </select>
+        </li>
+        <li>
+            <label for="brightness">Brightness</label>
+            <select id="brightness" name="brightness" onChange="handleSelect();">
+                <option value="100" selected>Please choose</option>
+                <option value="000">0</option>
+                <option value="001">1</option>
+                <option value="002">2</option>
+                <option value="003">3</option>
+                <option value="004">4</option>
+                <option value="005">5</option>
+                <option value="006">6</option>
+                <option value="007">7</option>
+                <option value="008">8</option>
+                <option value="009">9</option>
+                <option value="010">10</option>
+                <option value="020">20</option>
+                <option value="030">30</option>
+                <option value="040">40</option>
+                <option value="050">50</option>
+                <option value="060">60</option>
+                <option value="070">70</option>
+                <option value="080">80</option>
+                <option value="090">90</option>
+                <option value="100">100</option>
+            </select>
+        </li>
+        <li>
+            <label for="color">Color</label>
+            <select id="color" name="color" onChange="handleSelect();">
+                <option value="r255g255b255" selected>Please choose</option>
+                <option value="r255g255b255">White</option>
+                <option value="r255g000b000">Red</option>
+                <option value="r000g000b255">Blue</option>
+                <option value="r000g255b000">Lime</option>
+                <option value="r000g128b000">Green</option>
+                <option value="r255g165b000">Orange</option>
+                <option value="r128g000b128">Purple</option>
+                <option value="r238g130b238">Violet</option>
+                <option value="r255g255b000">Yellow</option>
+                <option value="r065g105b225">Royal Blue</option>
+                <option value="r230g230b250">Lavendar</option>
+                <option value="r255g000b255">Fuchia</option>
+                <option value="r000g255b255">Cyan</option>
+                <option value="r128g000b000">Maroon</option>
+                <option value="r000g128b128">Teal</option>
+                <option value="r000g000b128">Navy</option>
+                <option value="r128g128b000">Olive</option>
+                <option value="r000g000b000">Black</option>
+            </select>
+        </li>
+        <li>
+            <label for="direction">Direction</label>
+            <select id="direction" name="direction" onChange="handleSelect();">
+                <option value="000" selected>Please choose</option>
+                <option value="000">0</option>
+                <option value="045">45</option>
+                <option value="090">90</option>
+                <option value="135">135</option>
+                <option value="180">180</option>
+                <option value="225">225</option>
+                <option value="270">270</option>
+                <option value="315">315</option>
+                <option value="000">360</option>
+            </select>
+        </li>
+        <li>
+            <button type=button name="CCW10">+10 CCW</button>
+            <button type=button name="CCW5">+5 CCW</button>
+            <button type=button name="CCW1">+1 CCW</button>
+            <button type=button name="CW1">+1 CW</button>
+            <button type=button name="CW5">+5 CW</button>
+            <button type=button name="CW10">+10 CW</button>
+        </li>
+        <li>
+            <label for="speed">Speed</label>
+            <select id="speed" name="speed" onChange="handleSelect();">
+                <option value="100" selected>Please choose</option>
+                <option value="000">-100</option>
+                <option value="025">-75</option>
+                <option value="050">-50</option>
+                <option value="075">-25</option>
+                <option value="100">0</option>
+                <option value="125">+25</option>
+                <option value="150">+50</option>
+                <option value="175">+75</option>
+                <option value="200">+100</option>
+            </select>
+        </li>
+        <li>
+            <button type=button name="down10">-10</button>
+            <button type=button name="down5">-5</button>
+            <button type=button name="down1">-1</button>
+            <button type=button name="up1">+1</button>
+            <button type=button name="up5">+5</button>
+            <button type=button name="up10">+10</button>
+        </li>
+    </ul>
+  </center>
+  </body>
+</html>

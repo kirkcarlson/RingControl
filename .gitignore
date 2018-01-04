@@ -1,0 +1,8 @@
+# ignore holding directory
+hold/*
+
+# ignore config.js
+html/Config.js
+
+# ignore binaries
+*.bin

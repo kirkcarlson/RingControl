@@ -637,6 +637,7 @@ int getNextCommand ( LedState state)
 
 void interpretNextCommand ( LedState state, unsigned long entryTime)
 {
+    Serial.printf( "interpretNextCommand %d\r\n", state.currentCommandArray[state.currentCommandIndex]);
     switch (getNextCommand( state))
     {
         case LED_ON:

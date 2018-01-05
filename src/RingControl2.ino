@@ -176,8 +176,7 @@ int lastFadeTime = 0;
 int clockTime = 0;
 int lastClockTime = 0;
 
-
-typedef enum {
+enum ledCommand {
     LED_ON,
     LED_OFF,
     LED_ON_TIMED, // color
@@ -186,15 +185,16 @@ typedef enum {
     LED_FADE_TO_BLACK, //duration
     LED_FADE_TO_COLOR, //duration, color
     LED_STOP
-} ledCommand;
+};
 
 
-typedef enum {
+enum ledState {
+    LED_STATE_ENTRY, // state when starting a FSM
     LED_STATE_ON,
     LED_STATE_OFF,
     LED_STATE_FADING,
-    LED_STATE_NULL,     // LED is not being controlled, it may be on or off
-} ledState;
+    LED_STATE_NULL = 4     // LED is not being controlled, LED may be on or off
+};
 
 // command arrays
 // these loop unless directed not to with LED_STOP
@@ -220,6 +220,15 @@ typedef struct {
 
 
 LedState ledStates [ NUM_LEDS];
+
+
+void setupAllLedFSMs ()
+{
+  for (int i = 0; i < NUM_LEDS; i++)
+  {
+    ledStates[i].ledNumber = i;
+  }
+}
 
 
 void stopAllLedFSMs ()
@@ -338,7 +347,18 @@ void rotateLeft ()
 }
 
 
-void setupLEDMode( int mode)
+void printStateInfo( LedState state)
+{
+    printf("Led:%d state:%d array:%d array size:%d arrayIndex:%d\r\n",
+            state.ledNumber,
+            state.currentState,
+            state.currentCommandArray,
+            state.currentCommandArraySize,
+            state.currentCommandIndex);
+}
+
+
+void setLEDMode( int mode)
 /*
  * this function changes the current mode of the LED display and sets up
  * the effect(s) to be applied over time.
@@ -484,27 +504,31 @@ void setupLEDMode( int mode)
             //breathStepTime = 30;
             break;
 
-
         case flashSynched:
             Serial.println("LED mode changed to flashSynched");
             effect = steady;
             // use interpreted flash sequence
             for (int i = 0; i < NUM_LEDS; i++)
             {
-              ledStates[i].currentState = LED_STATE_NULL;
-              ledStates[i].currentCommandArray = flash250;
-              ledStates[i].currentCommandArraySize = sizeof(flash250)/sizeof(int);
-              ledStates[i].currentCommandIndex = 0;
-              ledStates[i].timeToRemain = 1;
+                ledStates[i].currentState = LED_STATE_ENTRY;
+                ledStates[i].currentCommandArray = flash250;
+                ledStates[i].currentCommandArraySize = sizeof(flash250)/sizeof(int);
+                ledStates[i].currentCommandIndex = 0;
+                ledStates[i].timeToRemain = 1;
+                printf("state: %d array:%d array size:%d arrayIndex:%d\r\n",
+                    ledStates[i].currentState,
+                    ledStates[i].currentCommandArray,
+                    ledStates[i].currentCommandArraySize,
+                    ledStates[i].currentCommandIndex);
             }
-
+            break;
 
         case flashPhased:
             Serial.println("LED mode changed to flashPhased");
             effect = steady;
             for (int i = 0; i < NUM_LEDS; i++)
             {
-              ledStates[i].currentState = LED_STATE_NULL;
+              ledStates[i].currentState = LED_STATE_ENTRY;
               ledStates[i].currentCommandArray = flash250;
               ledStates[i].currentCommandArraySize = sizeof(flash250)/sizeof(int);
               ledStates[i].currentCommandIndex = 0;
@@ -512,13 +536,12 @@ void setupLEDMode( int mode)
             }
             break;
 
-
         case winkSynched:
             Serial.println("LED mode changed to winkSynched");
             effect = steady;
             for (int i = 0; i < NUM_LEDS; i++)
             {
-              ledStates[i].currentState = LED_STATE_NULL;
+              ledStates[i].currentState = LED_STATE_ENTRY;
               ledStates[i].currentCommandArray = wink;
               ledStates[i].currentCommandArraySize = sizeof(wink)/sizeof(int);
               ledStates[i].currentCommandIndex = 0;
@@ -526,13 +549,12 @@ void setupLEDMode( int mode)
             }
             break;
 
-
         case winkPhased:
             Serial.println("LED mode changed to winkPhased");
             effect = steady;
             for (int i = 0; i < NUM_LEDS; i++)
             {
-              ledStates[i].currentState = LED_STATE_NULL;
+              ledStates[i].currentState = LED_STATE_ENTRY;
               ledStates[i].currentCommandArray = wink;
               ledStates[i].currentCommandArraySize = sizeof(wink)/sizeof(int);
               ledStates[i].currentCommandIndex = 0;
@@ -545,7 +567,7 @@ void setupLEDMode( int mode)
             effect = steady;
             for (int i = 0; i < NUM_LEDS; i++)
             {
-              ledStates[i].currentState = LED_STATE_NULL;
+              ledStates[i].currentState = LED_STATE_ENTRY;
               ledStates[i].currentCommandArray = blink;
               ledStates[i].currentCommandArraySize = sizeof(blink)/sizeof(int);
               ledStates[i].currentCommandIndex = 0;
@@ -553,13 +575,12 @@ void setupLEDMode( int mode)
             }
             break;
 
-
         case blinkPhased:
             Serial.println("LED mode changed to blinkPhased");
             effect = steady;
             for (int i = 0; i < NUM_LEDS; i++)
             {
-              ledStates[i].currentState = LED_STATE_NULL;
+              ledStates[i].currentState = LED_STATE_ENTRY;
               ledStates[i].currentCommandArray = blink;
               ledStates[i].currentCommandArraySize = sizeof(blink)/sizeof(int);
               ledStates[i].currentCommandIndex = 0;
@@ -567,13 +588,12 @@ void setupLEDMode( int mode)
             }
             break;
 
-
         case meteorSynched:
             Serial.println("LED mode changed to meteorSynched");
             effect = steady;
             for (int i = 0; i < NUM_LEDS; i++)
             {
-              ledStates[i].currentState = LED_STATE_NULL;
+              ledStates[i].currentState = LED_STATE_ENTRY;
               ledStates[i].currentCommandArray = meteor;
               ledStates[i].currentCommandArraySize = sizeof(meteor)/sizeof(int);
               ledStates[i].currentCommandIndex = 0;
@@ -581,13 +601,12 @@ void setupLEDMode( int mode)
             }
             break;
 
-
         case meteorPhased:
             Serial.println("LED mode changed to meteorPhased");
             effect = steady;
             for (int i = 0; i < NUM_LEDS; i++)
             {
-              ledStates[i].currentState = LED_STATE_NULL;
+              ledStates[i].currentState = LED_STATE_ENTRY;
               ledStates[i].currentCommandArray = meteor;
               ledStates[i].currentCommandArraySize = sizeof(meteor)/sizeof(int);
               ledStates[i].currentCommandIndex = 0;
@@ -608,10 +627,11 @@ int getNextCommand ( LedState state)
     int *commands = state.currentCommandArray;
     int command = commands[ state.currentCommandIndex];
     state.currentCommandIndex++;
-    if (state.currentCommandIndex > state.currentCommandArraySize);
+    if (state.currentCommandIndex >= state.currentCommandArraySize);
     {
         state.currentCommandIndex = 0;
     }
+    return command;
 }
 
 
@@ -621,6 +641,7 @@ void interpretNextCommand ( LedState state, unsigned long entryTime)
     {
         case LED_ON:
             Serial.println("LED ON command");
+            printStateInfo( state);
             //turn LED on without timer
             leds[ state.ledNumber] = ledColor;
             state.timeToRemain = 0;
@@ -629,6 +650,7 @@ void interpretNextCommand ( LedState state, unsigned long entryTime)
 
         case LED_OFF:
             Serial.println("LED OFF command");
+            printStateInfo( state);
             //turn LED off without timer
             leds[ state.ledNumber] = CRGB::Black;
             state.timeToRemain = 0;
@@ -695,13 +717,21 @@ void ledFSM ()
 {
     unsigned long now = millis();
     //for all LEDs
+    Serial.printf( "top of ledFSM %d\r\n", now);
     for (int i = 0; i< NUM_LEDS; i++)
     {
         //switch to current state of LED
+
         switch (ledStates[i].currentState)
         {
-            LED_STATE_ON:
-            LED_STATE_OFF:
+            case LED_STATE_ENTRY:
+                // should only get here on FSM start up
+                // get first command and off we go
+                interpretNextCommand (ledStates[i], now); // set up next state
+                break;
+
+            case LED_STATE_ON:
+            case LED_STATE_OFF:
                 // if timer has expired
                 if (ledStates[i].timeToRemain > 0 &&
                         now - ledStates[i].timeEntering > ledStates[i].timeToRemain)
@@ -710,7 +740,7 @@ void ledFSM ()
                 }
                 break;
 
-            LED_STATE_FADING:
+            case LED_STATE_FADING:
                 if (ledStates[i].timeToRemain > 0 &&
                         now - ledStates[i].timeEntering > ledStates[i].timeToRemain)
                 {
@@ -729,14 +759,16 @@ void ledFSM ()
                 }
                 break;
 
-            LED_STATE_NULL: // no timer running
+            case LED_STATE_NULL: // no timer should be running, do nothing
                 break;
 
             default:
-                Serial.printf("ledFSM got an unexpected state %d\r\n", ledStates[i].currentState);
+                Serial.printf("ledFSM got an unexpected state %d\r\n",
+                        ledStates[i].currentState);
                 break;
         }
     }
+    Serial.println( "bottom of ledFSM");
 }
 
 
@@ -837,7 +869,7 @@ int interpretLedStringCommand(String commandString)
                 {
                     if ( commandString.substring(ptr).compareTo(ledModeNames[i]) == 0)
                     {
-                        setupLEDMode( i);
+                        setLEDMode( i);
                         break;
 
                     }
@@ -915,6 +947,19 @@ void ledSetup ()
 {
     Time.zone(-5); //EST
     FastLED.addLeds<WS2812, FASTLED_PIN, GRB>(leds, NUM_LEDS);
+
+    setupAllLedFSMs();
+    stopAllLedFSMs();
+
+    // setup for web controls
+    Particle.function ("ledControl", interpretLedStringCommand);
+    //Particle.function ("ledColor", ledColorFunction);
+    //Particle.function ("ledMode", ledModeFunction);
+    //Particle.function ("ledSpeed", ledSpeedFunction);
+    //Particle.function ("ledDirection", ledDirectionFunction);
+    //setLEDMode( quadFlasher);
+    //setLEDMode( quadFlasher2);
+    setLEDMode( clockFace);
 }
 
 
@@ -1433,7 +1478,7 @@ int functionPercent(int device, int percent, int changeAmount, String rawParamet
         case ledModeDevice:
             Serial.printf("Set LED Mode as percentage %d", percent);
             Serial.println("");
-            setupLEDMode( percent);
+            setLEDMode( percent);
             break;
 
         case ledDirectionDevice:
@@ -1532,8 +1577,6 @@ void setup()
     Serial.begin(9600);
     Serial.println("Serial monitor started");
 
-    ledSetup();
-
     /* Add echo devices for echo bridge
        These devices and capabilities are transferred to Alexa with the discover command
        The capabilities may be on or more of the following:
@@ -1616,15 +1659,7 @@ void EchoPhotonBridge::addEchoDeviceV3(String deviceName,
     FastLED.setBrightness( (int) (LEDbrightness*255/100));
     breathIndex = 0;
 
-    // setup for web controls
-    Particle.function ("ledControl", interpretLedStringCommand);
-    //Particle.function ("ledColor", ledColorFunction);
-    //Particle.function ("ledMode", ledModeFunction);
-    //Particle.function ("ledSpeed", ledSpeedFunction);
-    //Particle.function ("ledDirection", ledDirectionFunction);
-    //setupLEDMode( quadFlasher);
-    //setupLEDMode( quadFlasher2);
-    setupLEDMode( clockFace);
+    ledSetup();
 }
 
 void loop()

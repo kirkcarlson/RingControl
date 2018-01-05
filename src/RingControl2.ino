@@ -349,7 +349,7 @@ void rotateLeft ()
 
 void printStateInfo( LedState state)
 {
-    printf("Led:%d state:%d array:%d array size:%d arrayIndex:%d\r\n",
+    Serial.printf("Led:%d state:%d array:%d array size:%d arrayIndex:%d\r\n",
             state.ledNumber,
             state.currentState,
             state.currentCommandArray,

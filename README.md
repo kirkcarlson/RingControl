@@ -19,6 +19,18 @@ Eventually there will be a third mechanism that controls the other two. It can b
 Presently a crude web interface is provided to select colors, brightness or one of the predefined effects.
 
 This is a work in progress. It is a prototype for experimenting with effects and chaining them together. This should not be taken as a parts of a final program. Things may be added or deleted from this prototype over time.
+## To Use This
+This assumes that a Particle Photon is installed on an Adafruit particle LED ring board #2268 and that the Photon is connected to the Particle.io server.
+
+You need to supply your own creditials in the html/Config.js file:
+
+```
+// this file contains the access parameters for the Parical.io
+var accessToken = "Your Token Here";
+var deviceId = "Your Device Id Here";
+```
+
+Bring up the html/RingControl.html file in your browser. Selecting the various controls sends a command to the Photon.
 
 ## What Isn't Working
 

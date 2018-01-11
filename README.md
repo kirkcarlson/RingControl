@@ -1,17 +1,28 @@
-# Lights
+# Ring Controller
 
-## What is Working
-This is a work in progress. You may change the type of display, its primary color
-for some modes, the brightness.
+## What This Is
+The ring controller is a controller for an LED ring, specifically a Adafruit particle LED ring.
+The controller uses a Particle Photon, but probably could be used by Arduino processors. The lights use a NeoPixel ring, but may be any array or RGB LEDs that can be controlled by the FastLED library.
 
-This is a prototype for creating different flashing techniques. This should not
-be taken as a parts of a final program. Many things may be added or deleted from
-this prototype over time.
+At the moment control is performed on two levels: at the individual LED level and at a group level.
+
+Individual LED control allows for a light to be flashed or dimmed independently of all other LEDs. This can be handy in some scenarios with complicated timing requirements, like meteor or drip effects.
+
+Group control allows for a group of LEDs to be controlled as a unit. This is mose useful when all of the LEDs of a group are to be controlled in a similar fashion.
+
+The basic control mechanism is a combined interpreter and finite state machine. Some commands are executed immediately and some commands are executed over time. This approach allows for a declarative approach for defining light patterns.
+
+At the moment, there are two separate mechanisms to control individual or groups of LEDs.
+
+Eventually there will be a third mechanism that controls the other two. It can be used to apply a particular effect for a period of time and then apply another effect.
+
+Presently a crude web interface is provided to select colors, brightness or one of the predefined effects.
+
+This is a work in progress. It is a prototype for experimenting with effects and chaining them together. This should not be taken as a parts of a final program. Things may be added or deleted from this prototype over time.
 
 ## What Isn't Working
 
-(The speed and direction controls are not fully implemented. On and Off used to
-work, but now does not.
+(The speed and direction controls are not fully implemented. 
 No transitions have been implemented, nor have individual light controllers.
 The HTML page has its own state that does not reflect the current state of the
 LED ring as it should.
@@ -23,12 +34,11 @@ No .css code has been written, so the HTML control page is very plain and
 uninteresting. The HTML goes to another page. You must return to the original
 page to access another control.
 
+Timing control has a problem. On the Photon things that should be staggered will tend to become synchronized (e.g., phased flashing. This is because of firmware overhead. To account for this timers should use their OLD values instead of millis() or now. This is a fairly pervasive change.
 
-## Overview
+LED commands should have a LED_WAIT instead of LED_xx_TIMED. Just makes it a bit simpler (although less compact).
 
-This project provides voice and web control for a ring of FastLED Lights
-controlled by a Particle Photon. The lights may be any NeoPixel array, although
-it is intended for NeoPixel rings.
+# BEYOND HERE ARE NOTES!!
 
 ### Control Communications
 
@@ -49,8 +59,9 @@ The Fast LED light control has the ability to control a set of FastLEDs. While
 developed for an AdaFruit NeoPixel Ring,
 it can be used with any array of LEDs supported by FastLED.
 
-### Light Control The light has a general on-off control as well as a brightness
-### control. It also has a scene control for controlling light special effects.
+It is starting to look like the way to control this is by using MQTT and a program called Home Automation. The former provides an easy two-way communications. The latter provides a nice set of control widgets to make it easy to control the light.
+
+### Light Control The light has a general on-off control as well as a brightness control. It also has a scene control for controlling light special effects.
 
 In general, the light scene control has three layers: a mode that selects and
 controls an overall scene, a transition for moving between scenes,
@@ -67,8 +78,11 @@ somehow.)
 
 For example:
 -  mode: starry night -- black background with random stars
+
 --  transition: slowly bring up stars on a black background
+
 --  effect1: occasionally twinkle each star
+
 --  effect2: at a low frequency start a brighter shooting star (meteor) effect3
 --  effect3: move meteor with fading tail through the array, when done wait for effect2
 

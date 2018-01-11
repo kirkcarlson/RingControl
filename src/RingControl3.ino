@@ -50,14 +50,17 @@ FASTLED_USING_NAMESPACE;
 
 #define NUM_GROUPS 6 // number of possible groups, tentatively 0 is all LEDs
 
-const CRGB R = CRGB::Red;
-const CRGB Y = CRGB::Yellow;
-const CRGB W = CRGB::White;
-const CRGB B = CRGB::Blue;
-const CRGB G = CRGB::Green;
-const CRGB O = CRGB::Orange;
-const CRGB V = CRGB::Violet;
-const CRGB K = CRGB::Black;
+#define CLOCK_EFFECT_TIME 100 // how often to check on clock effect
+
+const int R = (255<<16) + (  0<<8) +   0;
+const int Y = (255<<16) + (255<<8) +   0;
+const int W = (255<<16) + (255<<8) + 255;
+const int B = (  0<<16) + (  0<<8) + 255;
+const int G = (  0<<16) + (128<<8) +   0;
+const int O = (255<<16) + (165<<8) +   0;
+const int V = (238<<16) + (130<<8) + 238;
+const int K = (  0<<16) + (  0<<8) +   0;
+
 
 enum LEDModes {
     offMode,
@@ -73,9 +76,16 @@ enum LEDModes {
     allFlash,
     quadFlasher,
     quadFlasher2,
-    octoFlasher,
+    quadFlasher3,
+    quadFlasher4,
+    quadFlasher5,
+    quadFlasher6,
+    quadFlasher7,
+    octaFlasher,
+    octaFlasher2,
     circulator,
-    singleColorBreath,
+    pendulum,
+    breathe,
     flashSynched,
     flashPhased,
     winkSynched,
@@ -101,9 +111,16 @@ String ledModeNames []= {
     "allFlash",
     "quadFlasher",
     "quadFlasher2",
-    "octoFlasher",
+    "quadFlasher3",
+    "quadFlasher4",
+    "quadFlasher5",
+    "quadFlasher6",
+    "quadFlasher7",
+    "octaFlasher",
+    "octaFlasher2",
     "circulator",
-    "singleColorBreath",
+    "pendulum",
+    "breathe",
     "flashSynched",
     "flashPhased",
     "winkSynched",
@@ -121,7 +138,7 @@ enum effects {
     fadeToTarget,
     rotateRightEffect,
     rotateLeftEffect,
-    breathe,
+    breatheEffect,
     twinkle,
     flashing,
     quadFlash1,
@@ -156,7 +173,7 @@ enum ledState {
     LED_STATE_ON,
     LED_STATE_OFF,
     LED_STATE_FADING,
-    LED_STATE_NULL = 4     // LED is not being controlled, LED may be on or off
+    LED_STATE_NULL     // LED is not being controlled, LED may be on or off
 };
 
 
@@ -164,14 +181,20 @@ enum groupCommand {
     GROUP_ON,
     GROUP_OFF,
     GROUP_COLOR,
+    GROUP_COLOR_MULTI,
     GROUP_COLOR_SEGMENT,
     GROUP_LOAD_PATTERN,
+    GROUP_RAINBOW,
+    GROUP_WHEEL,
+    GROUP_WAVE,
+    GROUP_TWINKLE,
+    GROUP_BREATHE,
     GROUP_ROTATE_RIGHT,
     GROUP_ROTATE_LEFT,
     GROUP_ROTATE_RIGHT_COUNT,
     GROUP_ROTATE_LEFT_COUNT,
-    GROUP_ROTATE_RIGHT_REPEATING,
-    GROUP_ROTATE_LEFT_REPEATING,
+    GROUP_REPEAT_COUNT,
+    GROUP_REPEAT_END,
     GROUP_CLOCK,
     GROUP_CHASE_CW_PAIR,
     GROUP_WAIT,
@@ -183,13 +206,15 @@ enum groupCommand {
 enum groupState {
     GROUP_STATE_ENTRY,
     GROUP_STATE_NULL,
-    GROUP_STATE_NO_ACTION,
+    GROUP_STATE_WAIT,
     GROUP_STATE_FADING,
     GROUP_STATE_ROTATING_RIGHT,
     GROUP_STATE_ROTATING_LEFT,
     GROUP_STATE_CLOCK,
     GROUP_STATE_BREATHING,
-    GROUP_STATE_CHASE_CW_PAIR
+    GROUP_STATE_TWINKLING,
+    GROUP_STATE_CHASE_CW_PAIR,
+    GROUP_STATE_STOP
 };
 
 // individual LED command arrays
@@ -217,12 +242,34 @@ int meteor [] = {
 
 // group LED command arrays
 // these loop unless directed not to with GROUP_STOP
+int offGC [] = {
+    GROUP_OFF,
+    GROUP_STOP
+};
+
 int singleColorGC [] = {
     GROUP_ON,
     GROUP_STOP
 };
 
+int multiColorGC [] = {
+    GROUP_COLOR_MULTI,
+    GROUP_STOP
+};
+
+int multiColorTwinkleGC [] = {
+    GROUP_COLOR_MULTI,
+    GROUP_TWINKLE,
+    GROUP_STOP
+};
+
 int allFlashGC [] = {
+    GROUP_COLOR, R,
+    GROUP_ON,
+    GROUP_WAIT, 250,
+    GROUP_OFF,
+    GROUP_WAIT, 250,
+    GROUP_COLOR, B,
     GROUP_ON,
     GROUP_WAIT, 250,
     GROUP_OFF,
@@ -231,12 +278,14 @@ int allFlashGC [] = {
 
 
 int quadFlashGC [] = {
-    GROUP_LOAD_PATTERN, R,R,R,R,R,R,
+    GROUP_LOAD_PATTERN, 24,
+                        R,R,R,R,R,R,
                         K,K,K,K,K,K,
                         R,R,R,R,R,R,
                         K,K,K,K,K,K,
     GROUP_WAIT, 250,
-    GROUP_LOAD_PATTERN, K,K,K,K,K,K,
+    GROUP_LOAD_PATTERN, 24,
+                        K,K,K,K,K,K,
                         R,R,R,R,R,R,
                         K,K,K,K,K,K,
                         R,R,R,R,R,R,
@@ -245,7 +294,8 @@ int quadFlashGC [] = {
 
 
 int quadFlashGC2 [] = {
-    GROUP_LOAD_PATTERN, R,R,R,R,R,R,
+    GROUP_LOAD_PATTERN, 24,
+                        R,R,R,R,R,R,
                         K,K,K,K,K,K,
                         R,R,R,R,R,R,
                         K,K,K,K,K,K,
@@ -256,14 +306,13 @@ int quadFlashGC2 [] = {
     GROUP_ROTATE_RIGHT,
     GROUP_ROTATE_RIGHT,
     GROUP_ROTATE_RIGHT,
-    GROUP_ROTATE_RIGHT,
-    GROUP_ROTATE_RIGHT,
     GROUP_WAIT, 250
 };
 
 
-int quadFlashGroup3 [] = {
-    GROUP_LOAD_PATTERN, R,R,R,R,R,R,
+int quadFlashGC3 [] = {
+    GROUP_LOAD_PATTERN, 24,
+                        R,R,R,R,R,R,
                         K,K,K,K,K,K,
                         R,R,R,R,R,R,
                         K,K,K,K,K,K,
@@ -274,7 +323,7 @@ int quadFlashGroup3 [] = {
 
 
 
-int quadFlashGroup4 [] = {
+int quadFlashGC4 [] = {
     GROUP_COLOR_SEGMENT, R, 0, NUM_LEDS/4-1,
     GROUP_COLOR_SEGMENT, K, NUM_LEDS/4, NUM_LEDS/2-1,
     GROUP_COLOR_SEGMENT, R, NUM_LEDS/2, 3*NUM_LEDS/4-1,
@@ -288,7 +337,7 @@ int quadFlashGroup4 [] = {
 };
 
 
-int quadFlashGroup5 [] = {
+int quadFlashGC5 [] = {
     GROUP_COLOR_SEGMENT, R, 0, NUM_LEDS/4-1,
     GROUP_COLOR_SEGMENT, K, NUM_LEDS/4, NUM_LEDS/2-1,
     GROUP_COLOR_SEGMENT, R, NUM_LEDS/2, 3*NUM_LEDS/4-1,
@@ -299,7 +348,7 @@ int quadFlashGroup5 [] = {
 };
 
 
-int quadFlashGroup6 [] = {
+int quadFlashGC6 [] = {
     GROUP_COLOR_SEGMENT, K, 0, NUM_LEDS-1,
     GROUP_COLOR_SEGMENT, R, 0, NUM_LEDS/4-1,
     GROUP_COLOR_SEGMENT, R, NUM_LEDS/2, 3*NUM_LEDS/4-1,
@@ -317,14 +366,28 @@ int quadFlashGroup6 [] = {
 //  GROUP_CHASE, NUM_LEDS/4-6, NUM_LEDS/2-6,
 //  GROUP_CHASE, NUM_LEDS/2-6, 3*NUM_LEDS/4-6,
 //above doesn't work well because pairs are now done sequentially rather than simultaneously
-//  GROUP_CHASE_CW_PAIR, NUM_LEDS/4-1, 0, NUM_LEDS/2-1, 30 //fromState, fromEnd, dest, delay
-    GROUP_WAIT, 250
-
+    GROUP_CHASE_CW_PAIR, NUM_LEDS/4-1, NUM_LEDS/2-1, NUM_LEDS/4, 30, //fromLED, toLED, count, delay
+    GROUP_WAIT, 250,
+    GROUP_CHASE_CW_PAIR, NUM_LEDS/2-1, 3*NUM_LEDS/4-1, NUM_LEDS/4, 30 //fromLED, toLED, count, delay
 };
 
 
-int octaFlashGroup [] = {
-    GROUP_LOAD_PATTERN, R,R,R,K,K,K,
+int quadFlashGC7 [] = {
+    GROUP_LOAD_PATTERN, 24,
+                        R,W,B,B,W,R,
+                        K,K,K,K,K,K,
+                        R,W,B,B,W,R,
+                        K,K,K,K,K,K,
+    GROUP_WAIT, 250,
+    GROUP_CHASE_CW_PAIR, NUM_LEDS/4-1, NUM_LEDS/2-1, NUM_LEDS/4, 30, //fromLED, toLED, count, delay
+    GROUP_WAIT, 250,
+    GROUP_CHASE_CW_PAIR, NUM_LEDS/2-1, 3*NUM_LEDS/4-1, NUM_LEDS/4, 30 //fromLED, toLED, count, delay
+};
+
+
+int octaFlashGC [] = {
+    GROUP_LOAD_PATTERN, 24,
+                        R,R,R,K,K,K,
                         R,R,R,K,K,K,
                         R,R,R,K,K,K,
                         R,R,R,K,K,K,
@@ -334,7 +397,7 @@ int octaFlashGroup [] = {
 };
 
 
-int octaFlashGroup2 [] = {
+int octaFlashGC2 [] = {
     GROUP_COLOR_SEGMENT, K, 0, NUM_LEDS-1,
     GROUP_COLOR_SEGMENT, R, 0,              NUM_LEDS/8-1,
     GROUP_COLOR_SEGMENT, R, 2*NUM_LEDS/8, 3*NUM_LEDS/8-1,
@@ -344,6 +407,64 @@ int octaFlashGroup2 [] = {
     GROUP_ROTATE_RIGHT_COUNT, NUM_LEDS/8,
     GROUP_WAIT, 250
 };
+
+
+int rainbowGC [] = {
+    GROUP_RAINBOW,
+    GROUP_STOP
+};
+
+int wheelGC [] = {
+    GROUP_WHEEL,
+    GROUP_STOP
+};
+
+int breatheGC [] = {
+    GROUP_BREATHE,
+    GROUP_STOP
+};
+
+int waveGC [] = {
+    GROUP_WAVE,
+    GROUP_WAIT, 30
+};
+
+int marqueeLeftGC [] = {
+    GROUP_ROTATE_LEFT,
+    GROUP_WAIT, 200
+};
+
+int marqueeRightGC [] = {
+    GROUP_ROTATE_RIGHT,
+    GROUP_WAIT, 200
+};
+
+int circulatorGC [] = {
+    GROUP_COLOR_SEGMENT, K, 0, NUM_LEDS-1,
+    GROUP_COLOR_SEGMENT, Y, NUM_LEDS/2, NUM_LEDS/2+4,
+    GROUP_REPEAT_COUNT, NUM_LEDS - 5,
+        GROUP_ROTATE_RIGHT,
+        GROUP_WAIT, 40,
+    GROUP_REPEAT_END,
+    GROUP_REPEAT_COUNT, 5,
+        GROUP_ROTATE_RIGHT,
+        GROUP_WAIT, 200,
+    GROUP_REPEAT_END,
+};
+
+int pendulumGC [] = {
+    GROUP_COLOR_SEGMENT, K, 0, NUM_LEDS-1,
+    GROUP_COLOR_SEGMENT, Y, NUM_LEDS/2, NUM_LEDS/2+4,
+    GROUP_REPEAT_COUNT, 5,
+        GROUP_ROTATE_LEFT,
+        GROUP_WAIT, 100,
+    GROUP_REPEAT_END,
+    GROUP_REPEAT_COUNT, 5,
+        GROUP_ROTATE_RIGHT,
+        GROUP_WAIT, 100,
+    GROUP_REPEAT_END,
+};
+
 
 
 //**** TYPEDEFs ****
@@ -374,9 +495,12 @@ typedef struct LedGroupState {
     int fromLED;
     int toLED;
     int onLED;
-    int count;//within group effect
+    int waveCount;//within wave effect
+    int count;//within a REPEAT
+    int repeatIndex;    // index into current array of commands for start of repeat
     uint8_t fadeStepNumber; // color is proportioned 255*(fadeSteps - fadeStepNumber)/fadeSteps
     uint8_t fadeSteps;      // total number of steps in fade
+    uint8_t breatheIndex;   // state of breathing for group
     CRGB fromColor; // fading from color
     CRGB toColor;   // fading to color
     CRGB color;
@@ -397,7 +521,7 @@ LedGroupState ledGroupStates [NUM_GROUPS];
 
 CRGB leds[NUM_LEDS]; // main LED array which is directly written to the LEDs
 
-int LEDbrightness; // level of over all brightness desired 0..100 percent
+int ledBrightness; // level of over all brightness desired 0..100 percent
 int LEDPoint = 0; // 0..23 LED direction for selected modes
 //int LEDSpeed = 0; // 0..100 speed of LED display mode
 CRGB ledColor = CRGB::White; // color of the LEDs
@@ -420,7 +544,6 @@ int LEDDirection = 0;
 #define ledBias 2 /* minimum led value during sine wave */
 int breathStep = 255/numBreathSteps;
 int breathStepTime = 60000/ bpm / numBreathSteps;
-uint8_t breathIndex = 0; // state of the breath
 
 // special variable for the LED chase effect
 int onLED = 0;
@@ -458,11 +581,23 @@ void stopAllLedFSMs ()
 }
 
 
+void setupAllLedGroupFSMs ()
+{
+  CRGB color = CRGB::White;
+  for (int i = 0; i < NUM_GROUPS; i++)
+  {
+    ledGroupStates[i].groupNumber = i;
+    ledGroupStates[i].color = (color.r<<16) + (color.g<<8) + color.b;
+    //Serial.printf("setup i:%d FSM:%X\r\n", i, (ledGroupStates[i].color.r<<16)+(ledGroupStates[i].color.g<<8)+ledGroupStates[i].color.b);
+  }
+}
+
+
 void stopAllLedGroupFSMs()
 {
   for (int i = 0; i < NUM_GROUPS; i++)
   {
-    ledGroupStates[i].currentState = GROUP_STATE_NULL;
+    ledGroupStates[i].currentState = GROUP_STATE_STOP;
     ledGroupStates[i].timeToRemain = 0;
   }
 }
@@ -584,15 +719,27 @@ void printStateInfo( LedState *state)
 }
 
 
+void printGroupStateInfo( LedGroupState *group)
+{
+    Serial.printf( "Group info group:%d command:%d index:%d state%d timeToRemain:%d\r\n",
+            group->groupNumber,
+            group->currentCommandArray,
+            group->currentCommandIndex,
+            group->currentState,
+            group->timeToRemain);
+}
+
+
 int getNextGroupCommand ( LedGroupState *group)
 // returns the next LED command for a particular state and updates pointers
 {
-    //printGroupStateInfo( group);
+    printGroupStateInfo( group);
     int command = group->currentCommandArray[ group->currentCommandIndex];
-    //Serial.printf("getNextGroupCommand %d\r\n", command);
+    Serial.printf("getNextGroupCommand %d\r\n", command);
     group->currentCommandIndex++;
     if (group->currentCommandIndex >= group->currentCommandArraySize)
     {
+        Serial.printf("getNextGroupCommand looping\r\n", group->currentCommandIndex);
         group->currentCommandIndex = 0;
     }
     //printStateInfo( state);
@@ -664,16 +811,17 @@ void calcGroupFadeSteps( LedGroupState *groupState, int time)
 
 void interpretNextLedCommand ( LedState *state, unsigned long entryTime)
 {
-    Serial.printf( "interpretNextLedCommand %d LED:%d address:%d time:%d\r\n",
+    Serial.printf( "interpretNextLedCommand %d LED:%d address:%d state:%d time:%d\r\n",
             state->currentCommandArray[state->currentCommandIndex],
             state->ledNumber,
             state,
+            state->currentState,
             entryTime);
     //printStateInfo( state);
     switch (getNextLedCommand( state))
     {
         case LED_ON:
-            Serial.println("LED ON command");
+            //Serial.println("LED ON command");
             //printStateInfo( state);
             //turn LED on without timer
             leds[ state->ledNumber] = ledColor;
@@ -682,7 +830,7 @@ void interpretNextLedCommand ( LedState *state, unsigned long entryTime)
             break;
 
         case LED_OFF:
-            Serial.println("LED OFF command");
+            //Serial.println("LED OFF command");
             //printStateInfo( state);
             //turn LED off without timer
             leds[ state->ledNumber] = CRGB::Black;
@@ -690,35 +838,38 @@ void interpretNextLedCommand ( LedState *state, unsigned long entryTime)
             state->currentState = LED_STATE_NULL;
             break;
 
-        case LED_ON_TIMED:
-            Serial.printf("LED ON TIMED command LED:%d\r\n", state->ledNumber);
+        case LED_ON_TIMED: // ms
+            //Serial.printf("LED ON TIMED command LED:%d\r\n", state->ledNumber);
             //turn LED on with timer
             leds[ state->ledNumber] = ledColor;
-            state->timeEntering = entryTime;
             state->timeToRemain = getNextLedCommand( state);
+            //state->timeEntering = state->timeEntering + state->timeToRemain;
+            state->timeEntering = entryTime;
             state->currentState = LED_STATE_ON;
             //printStateInfo( state);
             break;
 
-        case LED_OFF_TIMED:
-            Serial.printf("LED OFF TIMED command LED:%d\r\n", state->ledNumber);
+        case LED_OFF_TIMED: // ms
+            //Serial.printf("LED OFF TIMED command LED:%d\r\n", state->ledNumber);
             leds[ state->ledNumber] = CRGB::Black;
-            state->timeEntering = entryTime;
             state->timeToRemain = getNextLedCommand( state);
+            //state->timeEntering = state->timeEntering + state->timeToRemain;
+            state->timeEntering = entryTime;
             state->currentState = LED_STATE_OFF;
             //printStateInfo( state);
             break;
 
-        case LED_TIMED_COLOR:
-            Serial.println("LED TIMED COLOR command");
+        case LED_TIMED_COLOR: // color
+            //Serial.println("LED TIMED COLOR command");
             leds[ state->ledNumber] = getNextLedCommand( state);
-            state->timeEntering = entryTime;
             state->timeToRemain = getNextLedCommand( state);
+            //state->timeEntering = state->timeEntering + state->timeToRemain;
+            state->timeEntering = entryTime;
             state->currentState = LED_STATE_ON;
             break;
 
-        case LED_FADE_TO_BLACK:
-            Serial.println("LED FADE TO BLACK command");
+        case LED_FADE_TO_BLACK: // ms
+            //Serial.println("LED FADE TO BLACK command");
             state->timeEntering = entryTime;
             state->fadeStepNumber = 0;
             calcFadeSteps( state, getNextLedCommand( state));
@@ -727,8 +878,8 @@ void interpretNextLedCommand ( LedState *state, unsigned long entryTime)
             state->currentState = LED_STATE_FADING;
             break;
 
-        case LED_FADE_TO_COLOR:
-            Serial.println("LED FADE TO COLOR command");
+        case LED_FADE_TO_COLOR: // ms
+            //Serial.println("LED FADE TO COLOR command");
             state->timeEntering = entryTime;
             state->fadeStepNumber = 0;
             calcFadeSteps( state, getNextLedCommand( state));
@@ -738,7 +889,7 @@ void interpretNextLedCommand ( LedState *state, unsigned long entryTime)
             break;
 
         case LED_STOP:
-            Serial.println("LED STOP command");
+            //Serial.println("LED STOP command");
             state->currentState = LED_STATE_NULL;
             state->timeToRemain = 0;
             break;
@@ -837,22 +988,23 @@ void ledFSM ()
 /* GROUP STUFF UNDER CONSTRUCTION */
 void groupRotateRight( LedGroupState *group)
 {
-            CRGB saveLed = leds[ group->members[ group->numLeds - 1] ];
-	    for (int i = group->numLeds - 1; i >= 1; i--)
-            {
-                leds[ group->members[i]] = leds[ group->members[i] - 1];
-            }
-            leds[ group->members[0]] = saveLed;
+    CRGB saveLed = leds[ group->members[ group->numLeds - 1] ];
+    for (int i = group->numLeds - 1; i >= 1; i--)
+    {
+        leds[ group->members[i]] = leds[ group->members[i] - 1];
+    }
+    leds[ group->members[0]] = saveLed;
 }
 
 void groupRotateLeft( LedGroupState *group)
 {
-            CRGB saveLed = leds[ group->members[ 0]];
-            for (int i = 0; i < group->lastLED - 1; i++)
-            {
-                leds[ group->members[i]] = leds[ group->members[i] + 1];
-            }
-            leds [group->members[ group->numLeds - 1]] = saveLed;
+    int groupCount = group->numLeds;
+    CRGB saveLed = leds[ group->members[ 0]];
+    for (int i = 0; i < groupCount - 1; i++)
+    {
+        leds[ group->members[i]] = leds[ group->members[i] + 1];
+    }
+    leds [group->members[ groupCount - 1]] = saveLed;
 }
 
 
@@ -889,23 +1041,115 @@ void interpretNextGroupCommand ( LedGroupState *group, unsigned long entryTime)
                 GROUP_ON,
                 GROUP_WAIT, 200,
                 GROUP_OFF,
-                GROUP_ON,
+                GROUP_WAIT, 200,
             GROUP_REPEAT_END
         or
-            GROUP_REPEAT, 6,
+            GROUP_REPEAT_COUNT, 6,
                 GROUP_ON,
                 GROUP_WAIT, 200,
                 GROUP_OFF,
-                GROUP_ON,
+                GROUP_WAIT, 200,
             GROUP_REPEAT_END
         to prevent multiple instances, GROUP_REPEATx could check the loop count
             this would require zeroing the counter, it the process was interupted (or restarted)
             should not allow interpretation within the loop
 
+need to be able to "call" subroutines
+for 15 seconds flash lights in some pattern
+DIRECTOR 15 SECONDS
+  GROUP 1
+    GROUP ON
+    GROUP WAIT
+    GROUP OFF
+    GROUP WAIT
+  GROUP END
+  GROUP 3 FLASH
+    GROUP ON
+    GROUP WAIT
+    GROUP OFF
+    GROUP WAIT
+  GROUP END
+  LED 2
+     LED ON
+     LED WAIT
+     LED ON
+     LED WATI
+  LED END
+DIRECTOR END
+DIRECTOR 15 SECONDS
+...
+
+Another way to do this:
+groupFlashType1:
+  GROUP ON
+  GROUP WAIT
+  GROUP OFF
+  GROUP WAIT
+ledFlashType1:
+  LED ON
+  LED WAIT
+  LED ON
+  LED WATI
+DIRECTOR 15 SECONDS
+  GROUP 1 groupFlashType1
+  GROUP 3 groupFlashType1
+  LED 2 ledFlashType1
+DIRECTOR END
+DIRECTOR 15 SECONDS
+...
+The latter promotes reuse... sort of a subroutine mechanism
+is more compact and may be easier to understand
+
+
+need to had a transparent color to allow color to shine from lower layers
+need to have color set by group, not as a whole
+need to control dimming by whole and by group
+
+transparency
+  maybe think of this like a drawing
+    it consists of a set of objects
+    the objects are ordered from top to bottom
+  in this case the objects are (for now) groups and LEDs
+  the ordering can be a ordered list
+    LEDs are normally at the bottom, but not necessarily so
+    groups may be in any order.
+ to find the color of a pixel, dive down through the objects until action one found
+
+ think about sprites... sort of in the sense of the CodeBug sprites
+   they can be one or two dimensions
+   they can move from one point to another at some velocity
+   two dimentional sprites maybe a string of characters
+
+ DIRECTOR
+   GROUP 1 multiColorMarquee
+   GROUP 2 background
+   GROUP 3 flyInStringFromRight
+ DIRECTOR END
+ DIRECTOR
+   GROUP 1 multiColorMarquee
+   GROUP 2 background2
+   GROUP 3 scrollInStringFromRight
+ DIRECTOR END
+
     some commands are for immediate execution (GROUP_COLOR, GROUP_LOAD_PATTERN)
     some commands wait for a timer (GROUP_WAIT)
     some commands pass control to the FSM (e.g. GROUP_CLOCK)
+
+    this can and should change the group FSM state, the calling function can do more
+
+    Or is there another philosopy at play here.
+        do actions until done
+        done when no more to do (STOP) or wait for timer (WAIT)
+        commands that do not change state should not FastLED.show()
+        commands that do change to a stable state should do a FastLED.show()
+
+    this latter philosophy would need a loop here.
     */
+
+    // common scratch variable
+    int groupCount;
+    CRGB color;
+    CRGB scratchLEDs [NUM_LEDS];
 
     Serial.printf( "interpretNextGroupCommand %d Group:%d address:%d time:%d\r\n",
             group->currentCommandArray[group->currentCommandIndex],
@@ -913,60 +1157,82 @@ void interpretNextGroupCommand ( LedGroupState *group, unsigned long entryTime)
             group,
             entryTime);
     //printStateInfo( state);
-    switch (getNextGroupCommand( group))
+    //Serial.printf("iNGC color:%X\r\n", (group->color.r<<16)+(group->color.g<<8)+group->color.b);
+
+    group->currentState = GROUP_STATE_NULL;
+    while (group->currentState == GROUP_STATE_NULL)
+//this won't work when you want to do a GROUP STOP
     {
-        case GROUP_ON:
-            //turn on all LEDs of group
-            Serial.println("GROUP ON command");
-            //printGroupInfo( group);
-            for (int i = 0; i <= group->numLeds-1; i++)
-            {
-                int lc =  (ledColor.r<<16) + (ledColor.g<<8) + ledColor.b;
-                Serial.printf( "GROUP ON i:%d led:%d color:%d\r\n", i, group->members[i], lc);
-                //leds[ group->members[i]] = group->color;
-                leds[ group->members[i]] = ledColor;
-            }
-            group->timeToRemain = 0;
-            group->currentState = GROUP_STATE_NULL;
-            break;
-
-        case GROUP_OFF:
-            //turn off all LEDs of group
-            Serial.println("GROUP OFF command");
-            //printGroupInfo( group);
-            for (int i = 0; i <= group->numLeds-1; i++)
-            {
-                leds[ group->members[i]] = CRGB::Black;
-            }
-            group->timeToRemain = 0;
-            group->currentState = GROUP_STATE_NULL;
-            break;
-
-        case GROUP_COLOR: // color
-            //set color of group
-            Serial.println("GROUP COLOR command");
-            //printGroupInfo( group);
-            //group->color = getNextGroupCommand( group);
-            ledColor = getNextGroupCommand( group);
-            break;
-
-        case GROUP_COLOR_SEGMENT: // color, start, end
-            {
-                //set color of group
-                Serial.println("GROUP COLOR SEGMENT command");
+        Serial.printf( "INGP getting another command\r\n");
+        switch (getNextGroupCommand( group))
+        {
+            case GROUP_ON:
+                //turn on all LEDs of group
+                Serial.println("GROUP ON command");
                 //printGroupInfo( group);
-                CRGB ledGroupColor = getNextGroupCommand( group);
-                for (int i = getNextGroupCommand( group); i <= getNextGroupCommand( group); i++)
+                groupCount = group->numLeds;
+                for (int i = 0; i < groupCount; i++)
                 {
-                    leds[ group->members[i]] = ledGroupColor;
+		    //Serial.printf("GROUP ON i:%d color:%X\r\n", i, (group->color.r<<16)+(group->color.g<<8)+group->color.b);
+                    leds[ group->members[i]] = group->color;
                 }
-            }
-            break;
+                //group->timeToRemain = 0;
+                break;
 
-        case GROUP_LOAD_PATTERN: //count color...
-            {
-                int groupCount = getNextGroupCommand( group);
-                for (int i = 0; i <= group->numLeds; i++)
+            case GROUP_OFF:
+                //turn off all LEDs of group
+                Serial.println("GROUP OFF command");
+                //Serial.printf("group->numLeds is %d.\r\n", group->numLeds);
+
+                //printGroupInfo( group);
+                groupCount = group->numLeds;
+                for (int i = 0; i < groupCount; i++)
+                {
+                    leds[ group->members[i]] = CRGB::Black;
+                }
+                //group->timeToRemain = 0;
+                break;
+
+            case GROUP_COLOR_MULTI:
+                //turn on all LEDs of group with random colors
+                Serial.println("GROUP COLOR MULTI command");
+                //printGroupInfo( group);
+                for (int i = 0; i < group->numLeds; i++)
+                {
+                    color.r = random (255);
+                    color.g = random (255);
+                    color.b = random (255);
+                    leds[ group->members[i]] = color;
+                }
+                //group->timeToRemain = 0;
+                break;
+
+            case GROUP_COLOR: // color
+                //set color of group
+                Serial.println("GROUP COLOR command");
+                //printGroupInfo( group);
+                group->color = getNextGroupCommand( group);
+                break;
+
+            case GROUP_COLOR_SEGMENT: // color, start, end
+                {
+                    //set color of group
+                    Serial.println("GROUP COLOR SEGMENT command");
+                    //printGroupInfo( group);
+                    CRGB ledGroupColor = getNextGroupCommand( group);
+                    int start =  getNextGroupCommand( group);
+                    int end = getNextGroupCommand( group);
+                    for (int i = start; i <= end; i++)
+                    {
+                        leds[ group->members[i]] = ledGroupColor;
+                    }
+                }
+                break;
+
+            case GROUP_LOAD_PATTERN: //count color...
+                Serial.println("GROUP LOAD PATTERN command");
+                groupCount = getNextGroupCommand( group);
+                for (int i = 0; i < group->numLeds; i++)
                 {
                     if (groupCount > 0)
                     {
@@ -983,103 +1249,178 @@ void interpretNextGroupCommand ( LedGroupState *group, unsigned long entryTime)
                     getNextGroupCommand( group);
                     groupCount--;
                 }
-            }
-            break;
+                break;
 
-        // immediate group movements
-        case GROUP_ROTATE_RIGHT: // speed?
-            Serial.println("GROUP ROTATE RIGHT command");
-            groupRotateRight( group);
-            break;
+            case GROUP_RAINBOW:
+                //fill_rainbow(leds, NUM_LEDS, 0, 20);
+                //*pFirstLED, int numToFill, uint8_t initialhue, uint8_t deltahue=5)
+                groupCount = group->numLeds;
+                group->count = 0;
+                fill_rainbow( scratchLEDs, groupCount, group->count, 5);
+                for (int i = 0; i < groupCount; i++)
+                {
+                    leds[ group->members[ i]] = scratchLEDs[ i];
+                }
+                break;
 
+            case GROUP_WHEEL:
 
-        case GROUP_ROTATE_LEFT: // speed?
-            Serial.println("GROUP ROTATE LEFT command");
-            groupRotateLeft( group);
-            break;
+                // spreading a color wheel across all of the LEDS
+                groupCount = group->numLeds;
+                for (int i = 0; i < groupCount; i++)
+                {
+                    leds[i] = wheel( i * 255 / groupCount);
+                }
+                break;
 
-        case GROUP_ROTATE_RIGHT_COUNT: // count
-            Serial.println("GROUP ROTATE RIGHT COUNT command");
-            for (int i = 0; i <= getNextGroupCommand( group); i++)
-            {
+            // immediate group movements
+            case GROUP_ROTATE_RIGHT: // speed?
+                Serial.println("GROUP ROTATE RIGHT command");
                 groupRotateRight( group);
-            }
-            break;
+                break;
 
-        case GROUP_ROTATE_LEFT_COUNT: // count
-            Serial.println("GROUP ROTATE LEFT command");
-            for (int i = 0; i <= getNextGroupCommand( group); i++)
-            {
+
+            case GROUP_ROTATE_LEFT: // speed?
+                Serial.println("GROUP ROTATE LEFT command");
                 groupRotateLeft( group);
-            }
-            break;
+                break;
 
-        // delayed group movements
-        case GROUP_ROTATE_RIGHT_REPEATING: // delay
-            Serial.println("GROUP ROTATE LEFT REPEATING command");
-            group->timeEntering = entryTime;
-            group->timeToRemain = getNextGroupCommand( group);
-            group->currentState = GROUP_STATE_ROTATING_RIGHT;
-            break;
+            case GROUP_ROTATE_RIGHT_COUNT: // count
+                Serial.println("GROUP ROTATE RIGHT COUNT command");
+                groupCount = getNextGroupCommand( group);
+                for (int i = 0; i < groupCount; i++)
+                {
+                    groupRotateRight( group);
+                }
+                break;
 
-        case GROUP_ROTATE_LEFT_REPEATING: // delay
-            Serial.println("GROUP ROTATE LEFT REPEATING command");
-            group->timeEntering = entryTime;
-            group->timeToRemain = getNextGroupCommand( group);
-            group->currentState = GROUP_STATE_ROTATING_LEFT;
-            break;
+            case GROUP_ROTATE_LEFT_COUNT: // count
+                Serial.println("GROUP ROTATE LEFT COUNT command");
+                groupCount = getNextGroupCommand( group);
+                for (int i = 0; i < groupCount; i++)
+                {
+                    groupRotateLeft( group);
+                }
+                break;
 
-	case GROUP_CHASE_CW_PAIR: //from, dest, count, delay
-            Serial.println("GROUP CHASE CW PAIR command");
-            group->fromLED = getNextGroupCommand( group);
-            group->toLED = getNextGroupCommand( group);
-            group->count = getNextGroupCommand( group);
-            group->timeEntering = entryTime;
-            group->timeToRemain = getNextGroupCommand( group);
-            group->currentState = GROUP_STATE_CHASE_CW_PAIR;
-            break;
+            // delayed group movements
+            case GROUP_TWINKLE:
+                Serial.println("GROUP TWINKLE command");
+                // overly simplistic... only works one LED at a time
+                //prime the pump
+                group->onLED = random( group->numLeds);
+                group->fromColor = leds[ group->onLED];
+                group->timeEntering = entryTime;
+                group->timeToRemain = 100;
+                group->currentState = GROUP_STATE_TWINKLING;
+                break;
 
-        case GROUP_CLOCK: // colors?
-            Serial.println("GROUP CLOCK command");
-            group->timeEntering = entryTime;
-            group->currentState = GROUP_STATE_CLOCK;
-            break;
+            case GROUP_BREATHE:
+                Serial.println("GROUP BREATHE command");
+                // this maybe should have a breaths/minute parameter
+                group->timeEntering = entryTime;
+                group->timeToRemain = breathStepTime;
+                group->breatheIndex = 0;
+                group->currentState = GROUP_STATE_BREATHING;
+                break;
 
-        case GROUP_WAIT: // time
-            Serial.println("GROUP WAIT command");
-            FastLED.show();
-            group->timeToRemain = getNextGroupCommand( group);
-            group->currentState = GROUP_STATE_ENTRY;
+            case GROUP_CHASE_CW_PAIR: //from, dest, count, delay
+                Serial.println("GROUP CHASE CW PAIR command");
+                group->fromLED = getNextGroupCommand( group);
+                group->toLED = getNextGroupCommand( group);
+                group->count = getNextGroupCommand( group);
+                group->onLED = group->fromLED;
+                group->timeEntering = entryTime;
+                group->timeToRemain = getNextGroupCommand( group);
+                group->currentState = GROUP_STATE_CHASE_CW_PAIR;
+                break;
 
-        case GROUP_FADE_TO_BLACK: // time
-            Serial.println("GROUP FADE TO BLACK command");
-            group->timeEntering = entryTime;
-            group->fadeStepNumber = 0;
-            calcGroupFadeSteps( group, getNextGroupCommand( group));
-            group->fromColor = leds[ group->members[0]]; // may need to load group
-            group->toColor = CRGB::Black;
-            group->currentState = GROUP_STATE_FADING;
-            break;
+            case GROUP_CLOCK: // colors?
+                Serial.println("GROUP CLOCK command");
+                group->timeToRemain = CLOCK_EFFECT_TIME;
+                group->timeEntering = entryTime;
+                group->currentState = GROUP_STATE_CLOCK;
+                break;
 
-        case GROUP_FADE_TO_COLOR: // time, color
-            Serial.println("GROUP FADE TO COLOR command");
-            group->timeEntering = entryTime;
-            group->fadeStepNumber = 0;
-            calcGroupFadeSteps( group, getNextGroupCommand( group));
-            group->fromColor = leds[ group->members[0]];
-            group->toColor = getNextGroupCommand( group);
-            group->currentState = GROUP_STATE_FADING;
-            break;
+            case GROUP_WAIT: // time
+                Serial.println("GROUP WAIT command");
+                FastLED.show();
+                group->timeToRemain = getNextGroupCommand( group);
+                //group->timeEntering = group->timeEntering + group->timeToRemain;
+                group->timeEntering = entryTime;
+                group->currentState = GROUP_STATE_WAIT;
+                break;
 
-        case GROUP_STOP: // stop instead of looping
-            Serial.println("GROUP STOP command");
-            FastLED.show();
-            group->timeToRemain = 0;
-            break;
+            case GROUP_FADE_TO_BLACK: // time
+                Serial.println("GROUP FADE TO BLACK command");
+                group->timeEntering = entryTime;
+                group->fadeStepNumber = 0;
+                group->fromColor = group->color; // may need to do individually
+                group->toColor = CRGB::Black;
+                calcGroupFadeSteps( group, getNextGroupCommand( group)); // set timeToRemain
+                group->timeEntering = entryTime;
+                group->currentState = GROUP_STATE_FADING;
+                break;
 
-        default:
-            Serial.println("Got an unexpected GROUP command");
-            break;
+            case GROUP_FADE_TO_COLOR: // time, color
+                Serial.println("GROUP FADE TO COLOR command");
+                group->timeEntering = entryTime;
+                group->fadeStepNumber = 0;
+                group->fromColor = leds[ group->members[0]];
+                group->toColor = getNextGroupCommand( group);
+                group->color = group->color;
+                group->timeEntering = entryTime;
+                calcGroupFadeSteps( group, getNextGroupCommand( group)); // set timeToRemain
+                group->currentState = GROUP_STATE_FADING;
+                break;
+
+            case GROUP_WAVE:
+                Serial.println("GROUP WAVE command");
+                groupCount = group->numLeds;
+                group->waveCount = group->waveCount + 1;
+                if (group->waveCount > 255)
+                {
+                    group->waveCount = 0;
+                }
+                Serial.printf("GROUP WAVE count:\r\n", group->waveCount);
+                fill_rainbow( scratchLEDs, groupCount, group->waveCount, 5);
+                for (int i = 0; i < groupCount; i++)
+                {
+                    leds[ group->members[ i]] = scratchLEDs[ i];
+		}
+                group->timeEntering = entryTime;
+                break;
+
+
+            // control functions
+            case GROUP_REPEAT_COUNT: // number
+                Serial.println("GROUP REPEAT COUNT command");
+                group->count = getNextGroupCommand( group);
+                // no error testing. was it a good number?
+                group->repeatIndex = group->currentCommandIndex;
+                break;
+
+            case GROUP_REPEAT_END:
+                Serial.println("GROUP REPEAT END command");
+                // no error testing. was it initialized, was it forever
+                group->count = group->count - 1;
+                if (group->count > 0)
+                {
+                    group->currentCommandIndex = group->repeatIndex;
+                }
+                break;
+
+            case GROUP_STOP: // stop instead of looping
+                Serial.println("GROUP STOP command");
+                FastLED.show();
+                group->timeToRemain = 0;
+                group->currentState = GROUP_STATE_STOP;
+                break;
+
+            default:
+                Serial.println("Got an unexpected GROUP command");
+                break;
+        }
     }
 }
 
@@ -1093,6 +1434,7 @@ void groupFSM ()
     bool changed = false;
     for (int i = 0; i< NUM_GROUPS; i++)
     {
+        //Serial.printf("groupFSM color:%X\r\n", (ledGroupStates[i].color.r<<16)+(ledGroupStates[i].color.g<<8)+ledGroupStates[i].color.b);
         //switch to current state of LED
         switch (ledGroupStates[i].currentState)
         {
@@ -1106,7 +1448,7 @@ void groupFSM ()
                 }
                 break;
 
-            case GROUP_STATE_NO_ACTION: // just wait for time to expire
+            case GROUP_STATE_WAIT: // just wait for time to expire
                 // if timer has expired
                 if (ledGroupStates[i].timeToRemain > 0 &&
                         now - ledGroupStates[i].timeEntering > ledGroupStates[i].timeToRemain)
@@ -1170,6 +1512,7 @@ void groupFSM ()
                     float minute = (Time.minute() + Time.second() / 60 + .5) *
                             ledGroupStates[i].numLeds / 60;
                     float second = (Time.second() * ledGroupStates[i].numLeds + .5)  / 60;
+                    //Serial.printf( "Clock %0.1f:%0.1f:%0.1f %d\r\n", hour, minute, second, (int) millis()%1000);
                     //draw the hands
                     fillLedColor( CRGB::Black);
                     leds[ ledGroupStates[i].members[ ((int) hour + 1) %
@@ -1181,7 +1524,7 @@ void groupFSM ()
                     leds[ ledGroupStates[i].members[ ((int) minute - 1) %
                             ledGroupStates[i].numLeds]] = CRGB::Green;
                     // flash the seconds hand every second
-                    if (millis() % 1000 < 900) // just look at the milliseconds part
+                    if (millis() % 1000 < 1000-2*CLOCK_EFFECT_TIME) // just look at the milliseconds part
                     {
                         leds[ ledGroupStates[i].members[ (int) second]] = CRGB::Blue;
                     }
@@ -1190,19 +1533,39 @@ void groupFSM ()
                 }
                 break;
 
+            case GROUP_STATE_TWINKLING:
+                if (ledGroupStates[i].timeToRemain > 0 &&
+                        now - ledGroupStates[i].timeEntering >
+                        ledGroupStates[i].timeToRemain)
+                {
+                    // turn on on LED
+                    leds[ledGroupStates[i].onLED] = ledGroupStates[i].fromColor;
+                    // select a new LED to turn off
+                    ledGroupStates[i].onLED = random( ledGroupStates[i].numLeds);
+                    ledGroupStates[i].fromColor = leds[ ledGroupStates[i].onLED];
+                    leds[ ledGroupStates[i].onLED] = CRGB::Black;
+
+                    ledGroupStates[i].timeToRemain = random( 100, 500);
+                    ledGroupStates[i].timeEntering = now;
+                    FastLED.show();
+                }
+                break;
+
+
             case GROUP_STATE_BREATHING:
                 // as written this breathes all LEDs, not just the group
                 if (ledGroupStates[i].timeToRemain > 0 &&
                         now - ledGroupStates[i].timeEntering >
                         ledGroupStates[i].timeToRemain)
-                    {
-                        FastLED.setBrightness( (int) min(255, ((LEDbrightness *
-                                quadwave8( breathIndex) / 100)+ledBias)));
-                        breathIndex = breathIndex + breathStep;
-                        ledGroupStates[i].timeEntering = now;
-                        FastLED.show();
-                    }
-                    break;
+                {
+                    Serial.printf( "GROUP STATE BREATING index:%d\r\n", ledGroupStates[i].breatheIndex);
+                    FastLED.setBrightness( (int) min(255, ((ledBrightness *
+                            quadwave8( ledGroupStates[i].breatheIndex) / 100)+ledBias)));
+                    ledGroupStates[i].breatheIndex = ledGroupStates[i].breatheIndex + breathStep;
+                    ledGroupStates[i].timeEntering = now;
+                    FastLED.show();
+                }
+                break;
 
 
             case GROUP_STATE_ROTATING_RIGHT:
@@ -1226,7 +1589,7 @@ void groupFSM ()
                 }
                 break;
 
-	    case GROUP_CHASE_CW_PAIR: //source, dest, delay
+	    case GROUP_STATE_CHASE_CW_PAIR: //source, dest, delay
                 //from ... onLED ... dest
                 // count
                 //                       destEndLED       destStartLED
@@ -1240,16 +1603,28 @@ void groupFSM ()
                         now - ledGroupStates[i].timeEntering >
                         ledGroupStates[i].timeToRemain)
                 {
+                    Serial.printf( "Chase count: %d from:%d to:%d on:%d\r\n",
+                        ledGroupStates[i].count,
+                        ledGroupStates[i].fromLED,
+                        ledGroupStates[i].toLED,
+                        ledGroupStates[i].onLED
+                    );
                     //move one led on path toward destination
                     if (ledGroupStates[i].onLED == ledGroupStates[i].toLED)
                     {
                         // done moving this LED
-                        ledGroupStates[i].count = ledGroupStates[i].count -1;
+                        ledGroupStates[i].count = ledGroupStates[i].count - 1;
+                        //Serial.printf( "Chasing i:%d\r\n", ledGroupStates[i].count);
+                        printGroupStateInfo( &ledGroupStates[i]);
                         if (ledGroupStates[i].count == 0) //done moving
                         {
-                            ledGroupStates[i].timeEntering = millis();
-                            ledGroupStates[i].timeToRemain = 250;
-                            effect = quadFlashChase3;
+                            // execute the next group command
+                            ledGroupStates[i].timeEntering = now;
+                            ledGroupStates[i].timeToRemain = 0;
+                            ledGroupStates[i].currentState = GROUP_STATE_ENTRY;
+                            printGroupStateInfo( &ledGroupStates[i]);
+                            interpretNextGroupCommand( &ledGroupStates[i], now); // set up next state
+                            changed = true;
                         }
                         else
                         {
@@ -1260,33 +1635,45 @@ void groupFSM ()
                             ledGroupStates[i].toLED = (ledGroupStates[i].toLED -
                                      1 + ledGroupStates[i].numLeds) %
                                      ledGroupStates[i].numLeds;
+                            //move the first LED of this group
+                            ledGroupStates[i].onLED = ledGroupStates[i].fromLED;
+                            ledGroupStates[i].fromColor = leds[ledGroupStates[i].onLED];
+                            leds[ ledGroupStates[i].onLED] = CRGB::Black;
+                            leds[ (ledGroupStates[i].onLED +
+                                    (ledGroupStates[i].numLeds>>1)) %
+                                    ledGroupStates[i].numLeds] = CRGB::Black;
+                            ledGroupStates[i].onLED = (ledGroupStates[i].onLED + 1 +
+                                ledGroupStates[i].numLeds) % ledGroupStates[i].numLeds;
+                            leds[ ledGroupStates[i].onLED] = ledGroupStates->fromColor;
+                            leds[ (ledGroupStates[i].onLED +
+                                    ledGroupStates[i].numLeds/2) %
+                                    ledGroupStates[i].numLeds] = ledGroupStates->fromColor;
+                            changed = true;
                         }
                     }
-                    else
+                    else // keep on moving the onLED
                     {
+                        ledGroupStates[i].fromColor = leds[ledGroupStates[i].onLED];
                         leds[ ledGroupStates[i].onLED] = CRGB::Black;
                         leds[ (ledGroupStates[i].onLED +
-                                (ledGroupStates[i].numLeds>>1)) %
-                                ledGroupStates[i].numLeds] = CRGB::Black;
+                                ledGroupStates[i].numLeds/2) %
+                                ledGroupStates[i].numLeds ] = CRGB::Black;
+
                         ledGroupStates[i].onLED = (ledGroupStates[i].onLED + 1) %
                                 ledGroupStates[i].numLeds;
-                    }
-                    if (ledGroupStates[i].onLED != ledGroupStates[i].fromLED)
-                    {
-                        ////Serial.printf( "turning on %d %d\r\n", ledGroupStates[i].onLED, (ledGroupStates[i].onLED + ledGroupStates[i].numLeds/2) % ledGroupStates[i].numLeds);
-                        ////Serial.println("");
-                        leds[ ledGroupStates[i].onLED] = ledColor;
+                        leds[ ledGroupStates[i].onLED] = ledGroupStates->fromColor;
                         leds[ (ledGroupStates[i].onLED +
                                 ledGroupStates[i].numLeds/2) %
-                                ledGroupStates[i].numLeds ] = ledColor;
-                        FastLED.show();
+                                ledGroupStates[i].numLeds] = ledGroupStates->fromColor;
+                        changed = true;
                     }
-                    ledGroupStates[i].timeEntering = millis();
+                    ledGroupStates[i].timeEntering = now;
                 }
                 break;
 
             case GROUP_STATE_NULL: // no timer should be running, do nothing
-                FastLED.show(); // show whatever LEDs have changed, if any`
+            case GROUP_STATE_STOP: // no timer should be running, do nothing
+                //FastLED.show(); // show whatever LEDs have changed, if any`
                 break;
 
             default:
@@ -1303,16 +1690,16 @@ void groupFSM ()
 }
 
 
-void interpretGroupCommand ( LedGroupState *group, int *commands, int time)
+void interpretGroupCommand ( LedGroupState *group, int *commands, int size, int time)
 {
-            group->currentCommandArray = singleColorGC;
-            group->currentCommandArraySize = sizeof( singleColorGC) / sizeof(int);
-            group->currentCommandIndex = 0;
-            interpretNextGroupCommand ( group, time);
+    group->currentCommandArray = commands;
+    group->currentCommandArraySize = size;
+    group->currentCommandIndex = 0;
+    interpretNextGroupCommand ( group, time);
 }
 
 
-void setLEDMode( int group, int mode)
+void setLedMode( int group, int mode)
 /*
  * this function changes the current mode of the LED display and sets up
  * the effect(s) to be applied over time.
@@ -1340,8 +1727,8 @@ void setLEDMode( int group, int mode)
     {
         case offMode:
             //Serial.println("LED mode changed to offEffect");
-            //fillLedColor( CRBG::Black); // need a group function
-            ledGroupStates[group].currentState = GROUP_STATE_NO_ACTION;
+            interpretGroupCommand ( &ledGroupStates[ group], offGC, sizeof(offGC)/sizeof(int), now);
+            //ledGroupStates[group].currentState = GROUP_STATE_ENTRY;
             break;
 
         case singleColor:
@@ -1350,44 +1737,82 @@ void setLEDMode( int group, int mode)
             //to apply this to a group, need to know that group or its groupState number
             // group 0 could default to all LEDs
             //want to interpret the GROUP_ON command.
-            interpretGroupCommand ( &ledGroupStates[ group], singleColorGC, now);
-            ledGroupStates[group].currentState = GROUP_STATE_ENTRY;
+            interpretGroupCommand ( &ledGroupStates[ group], singleColorGC, sizeof(singleColorGC)/sizeof(int), now);
+            //ledGroupStates[group].currentState = GROUP_STATE_ENTRY;
             break;
 
         case staticMultiColor:
             //Serial.println("LED mode changed to staticMultiColor");
             fillLedMultiColor(); // need a group function
             FastLED.show();
-            ledGroupStates[group].currentState = GROUP_STATE_NO_ACTION;
+
+            interpretGroupCommand ( &ledGroupStates[ group], multiColorGC, sizeof(multiColorGC)/sizeof(int), now);
+            //ledGroupStates[group].currentState = GROUP_STATE_ENTRY;
             break;
 
         case twinklingMultiColor:
             //Serial.println("LED mode changed to twinklingMultiColor");
             //fillLedMultiColor(); // need a group function
             //effect = twinkle; // need a group state
-            ledGroupStates[group].currentState = GROUP_STATE_NO_ACTION;
-            FastLED.show();
+            //ledGroupStates[group].currentState = GROUP_STATE_NO_ACTION;
+            //FastLED.show();
+            interpretGroupCommand ( &ledGroupStates[ group], multiColorTwinkleGC, sizeof(multiColorTwinkleGC)/sizeof(int), now);
             break;
 
         case allFlash:
             //Serial.println("LED mode changed to allFlash");
-            interpretGroupCommand( &ledGroupStates[ group], allFlashGC, now);
+            interpretGroupCommand ( &ledGroupStates[ group], allFlashGC, sizeof(allFlashGC)/sizeof(int), now);
             break;
 
         case quadFlasher:
             //Serial.println("LED mode changed to quadFlasher");
-            interpretGroupCommand( &ledGroupStates[ group], quadFlashGC, now);
+            interpretGroupCommand ( &ledGroupStates[ group], quadFlashGC, sizeof(quadFlashGC)/sizeof(int), now);
             break;
 
+/*
         case quadFlasher2:
             //Serial.println("LED mode changed to quadflasher2");
             //interpretGroupCommand ( &ledGroupStates[ group], quadFlashGC2, now)
             //effect = quadFlashChase1;
             ledGroupStates[group].timeToRemain = 250;
             ledGroupStates[group].timeEntering = now - ledGroupStates[group].timeToRemain; // make it due now
-            ledGroupStates[group].currentState = GROUP_STATE_NO_ACTION;
+            ledGroupStates[group].currentState = GROUP_STATE_STOP;
+            break;
+*/
+
+        case quadFlasher2:
+            interpretGroupCommand ( &ledGroupStates[ group], quadFlashGC2, sizeof(quadFlashGC2)/sizeof(int), now);
             break;
 
+        case quadFlasher3:
+            interpretGroupCommand ( &ledGroupStates[ group], quadFlashGC3, sizeof(quadFlashGC3)/sizeof(int), now);
+            break;
+
+        case quadFlasher4:
+            interpretGroupCommand ( &ledGroupStates[ group], quadFlashGC4, sizeof(quadFlashGC4)/sizeof(int), now);
+            break;
+
+        case quadFlasher5:
+            interpretGroupCommand ( &ledGroupStates[ group], quadFlashGC5, sizeof(quadFlashGC5)/sizeof(int), now);
+            break;
+
+        case quadFlasher6:
+            interpretGroupCommand ( &ledGroupStates[ group], quadFlashGC6, sizeof(quadFlashGC6)/sizeof(int), now);
+            break;
+
+        case quadFlasher7:
+            interpretGroupCommand ( &ledGroupStates[ group], quadFlashGC7, sizeof(quadFlashGC7)/sizeof(int), now);
+            break;
+
+        case octaFlasher:
+            interpretGroupCommand ( &ledGroupStates[ group], octaFlashGC, sizeof(octaFlashGC)/sizeof(int), now);
+            break;
+
+        case octaFlasher2:
+            interpretGroupCommand ( &ledGroupStates[ group], octaFlashGC2, sizeof(octaFlashGC2)/sizeof(int), now);
+            break;
+
+/*
         case octoFlasher:
             //Serial.println("LED mode changed to octoFlasher");
             //effect = octoFlash1;
@@ -1395,8 +1820,9 @@ void setLEDMode( int group, int mode)
             //lastEffectTime = millis();
             ledGroupStates[group].timeToRemain = 250;
             ledGroupStates[group].timeEntering = now - ledGroupStates[group].timeToRemain; // make it due now
-            ledGroupStates[group].currentState = GROUP_STATE_NO_ACTION;
+            ledGroupStates[group].currentState = GROUP_STATE_STOP;
             break;
+*/
 
         case circulator:
             //Serial.printf("LED mode changed to circulator %d\r\n", millis());
@@ -1408,9 +1834,14 @@ void setLEDMode( int group, int mode)
             //toLED = (NUM_LEDS>>1) - 3; // gateLED for starting fast movement
             //effectTime = 100;
             //lastEffectTime = millis();
-            ledGroupStates[group].timeToRemain = 0;
-            ledGroupStates[group].timeEntering = now - ledGroupStates[group].timeToRemain; // make it due now
-            ledGroupStates[group].currentState = GROUP_STATE_NO_ACTION;
+            //ledGroupStates[group].timeToRemain = 0;
+            //ledGroupStates[group].timeEntering = now;
+            //ledGroupStates[group].currentState = GROUP_STATE_STOP;
+            interpretGroupCommand ( &ledGroupStates[ group], circulatorGC, sizeof(circulatorGC)/sizeof(int), now);
+            break;
+
+        case pendulum:
+            interpretGroupCommand ( &ledGroupStates[ group], pendulumGC, sizeof(pendulumGC)/sizeof(int), now);
             break;
 
         case staticRainbow:
@@ -1419,27 +1850,25 @@ void setLEDMode( int group, int mode)
             //*pFirstLED, int numToFill, uint8_t initialhue, uint8_t deltahue=5)
             //effect = steady;
             //FastLED.show();
-            ledGroupStates[group].timeToRemain = 0;
-            ledGroupStates[group].timeEntering = now - ledGroupStates[group].timeToRemain; // make it due now
-            ledGroupStates[group].currentState = GROUP_STATE_NO_ACTION;
+            interpretGroupCommand ( &ledGroupStates[ group], rainbowGC, sizeof(rainbowGC)/sizeof(int), now);
             break;
+
 
         case staticWheel:
             //Serial.println("LED mode changed to staticWheel");
             //fillWheel();
             //FastLED.show();
-            ledGroupStates[group].timeToRemain = 0;
-            ledGroupStates[group].timeEntering = now - ledGroupStates[group].timeToRemain; // make it due now
-            ledGroupStates[group].currentState = GROUP_STATE_NO_ACTION;
+            interpretGroupCommand ( &ledGroupStates[ group], wheelGC, sizeof(wheelGC)/sizeof(int), now);
             break;
 
         case colorWave:
             //Serial.println("LED mode changed to colorwave");
             //fillWheel();
             //FastLED.show();
-            ledGroupStates[group].timeToRemain = 0;
-            ledGroupStates[group].timeEntering = now - ledGroupStates[group].timeToRemain; // make it due now
-            ledGroupStates[group].currentState = GROUP_STATE_NO_ACTION;
+            //ledGroupStates[group].timeToRemain = 0;
+            //ledGroupStates[group].timeEntering = now;
+            //ledGroupStates[group].currentState = GROUP_STATE_STOP;
+            interpretGroupCommand ( &ledGroupStates[ group], waveGC, sizeof(waveGC)/sizeof(int), now);
             break;
 
         case clockFace:
@@ -1447,9 +1876,9 @@ void setLEDMode( int group, int mode)
             //effect = clockEffect;
             //effectTime = 30;
             //lastEffectTime = millis();
-            ledGroupStates[group].timeToRemain = 0;
-            ledGroupStates[group].timeEntering = now - ledGroupStates[group].timeToRemain; // make it due now
-            ledGroupStates[group].currentState = GROUP_STATE_NO_ACTION;
+            ledGroupStates[group].timeToRemain = CLOCK_EFFECT_TIME;
+            ledGroupStates[group].timeEntering = now;
+            ledGroupStates[group].currentState = GROUP_STATE_CLOCK;
             break;
 
         case marqueeLeft:
@@ -1466,9 +1895,7 @@ void setLEDMode( int group, int mode)
             effectTime = 250;
             lastEffectTime = 0; // make it due Now!  sort of
 */
-            ledGroupStates[group].timeToRemain = 0;
-            ledGroupStates[group].timeEntering = now - ledGroupStates[group].timeToRemain; // make it due now
-            ledGroupStates[group].currentState = GROUP_STATE_NO_ACTION;
+            interpretGroupCommand ( &ledGroupStates[ group], marqueeLeftGC, sizeof(marqueeLeftGC)/sizeof(int), now);
             break;
 
         case marqueeRight:
@@ -1485,13 +1912,11 @@ void setLEDMode( int group, int mode)
             effectTime = 250;
             lastEffectTime = 0; // make it due Now!  sort of
 */
-            ledGroupStates[group].timeToRemain = 0;
-            ledGroupStates[group].timeEntering = now - ledGroupStates[group].timeToRemain; // make it due now
-            ledGroupStates[group].currentState = GROUP_STATE_NO_ACTION;
+            interpretGroupCommand ( &ledGroupStates[ group], marqueeRightGC, sizeof(marqueeRightGC)/sizeof(int), now);
             break;
 
-        case singleColorBreath:
-            //Serial.println("LED mode changed to singleColorBreath");
+        case breathe:
+            //Serial.println("LED mode changed to breathe");
 /*
             fillLedColor( ledColor);
             FastLED.show();
@@ -1499,9 +1924,7 @@ void setLEDMode( int group, int mode)
             lastEffectTime = millis();
             effectTime = breathStepTime;
 */
-            ledGroupStates[group].timeToRemain = 0;
-            ledGroupStates[group].timeEntering = now - ledGroupStates[group].timeToRemain; // make it due now
-            ledGroupStates[group].currentState = GROUP_STATE_NO_ACTION;
+            interpretGroupCommand ( &ledGroupStates[ group], breatheGC, sizeof(breatheGC)/sizeof(int), now);
             break;
 
         case flashSynched:
@@ -1515,6 +1938,7 @@ void setLEDMode( int group, int mode)
                 ledStates[i].currentCommandArraySize = sizeof(flash250)/sizeof(int);
                 ledStates[i].currentCommandIndex = 0;
                 ledStates[i].timeToRemain = 1;
+                ledStates[i].timeEntering = now;
                 //printStateInfo( &ledStates[i]);
             }
             break;
@@ -1529,6 +1953,7 @@ void setLEDMode( int group, int mode)
               ledStates[i].currentCommandArraySize = sizeof(flash250)/sizeof(int);
               ledStates[i].currentCommandIndex = 0;
               ledStates[i].timeToRemain = i * 250/24 + 1;
+              ledStates[i].timeEntering = now;
             }
             break;
 
@@ -1542,6 +1967,7 @@ void setLEDMode( int group, int mode)
               ledStates[i].currentCommandArraySize = sizeof(wink)/sizeof(int);
               ledStates[i].currentCommandIndex = 0;
               ledStates[i].timeToRemain = 1;
+              ledStates[i].timeEntering = now;
             }
             break;
 
@@ -1555,6 +1981,7 @@ void setLEDMode( int group, int mode)
               ledStates[i].currentCommandArraySize = sizeof(wink)/sizeof(int);
               ledStates[i].currentCommandIndex = 0;
               ledStates[i].timeToRemain = i * 30 + 1;
+              ledStates[i].timeEntering = now;
             }
             break;
 
@@ -1568,6 +1995,7 @@ void setLEDMode( int group, int mode)
               ledStates[i].currentCommandArraySize = sizeof(blink)/sizeof(int);
               ledStates[i].currentCommandIndex = 0;
               ledStates[i].timeToRemain = 1;
+              ledStates[i].timeEntering = now;
             }
             break;
 
@@ -1581,6 +2009,7 @@ void setLEDMode( int group, int mode)
               ledStates[i].currentCommandArraySize = sizeof(blink)/sizeof(int);
               ledStates[i].currentCommandIndex = 0;
               ledStates[i].timeToRemain = i * 30 + 1;
+              ledStates[i].timeEntering = now;
             }
             break;
 
@@ -1594,6 +2023,7 @@ void setLEDMode( int group, int mode)
               ledStates[i].currentCommandArraySize = sizeof(meteor)/sizeof(int);
               ledStates[i].currentCommandIndex = 0;
               ledStates[i].timeToRemain = 1;
+              ledStates[i].timeEntering = now;
             }
             break;
 
@@ -1607,6 +2037,7 @@ void setLEDMode( int group, int mode)
               ledStates[i].currentCommandArraySize = sizeof(meteor)/sizeof(int);
               ledStates[i].currentCommandIndex = 0;
               ledStates[i].timeToRemain = i * 30 + 1;
+              ledStates[i].timeEntering = now;
             }
             break;
 
@@ -1628,6 +2059,7 @@ int interpretLedCommandString( String commandString)
     int direction;
     String mode;
     int ptr;
+    bool offSelected = false;
     #define lenTempStr 40
     char tempStr [ lenTempStr];
     //split command string into words
@@ -1646,6 +2078,7 @@ int interpretLedCommandString( String commandString)
     Serial.println (commandString);
     ptr = 0;
     char command = commandString.charAt( ptr);
+    CRGB color;
 
     while (command > 0)
     {
@@ -1690,6 +2123,7 @@ int interpretLedCommandString( String commandString)
             case 'f': //off
                 //Serial.println("off");
                 //functionOnOff( 3, false, "");
+                offSelected = true;
                 break;
 
             case 'l': //luminence (brightness)%
@@ -1697,10 +2131,9 @@ int interpretLedCommandString( String commandString)
                 {
                     value = 100;
                 }
-                LEDbrightness = value;
-                FastLED.setBrightness( (int) (LEDbrightness*255/100));
-                FastLED.show();
-                snprintf( tempStr, lenTempStr, "Brightness: %d", LEDbrightness);
+                ledBrightness = value;
+                FastLED.setBrightness( (int) (ledBrightness*255/100));
+                snprintf( tempStr, lenTempStr, "Brightness: %d", ledBrightness);
                 //Serial.println(tempStr);
                 break;
 
@@ -1720,7 +2153,17 @@ int interpretLedCommandString( String commandString)
                 {
                     if ( commandString.substring(ptr).compareTo(ledModeNames[i]) == 0)
                     {
-                        setLEDMode( selectedGroup, i);
+                        if (offSelected)
+                        {
+                            Serial.println("Off selected");
+                            ledBrightness = 0;
+                            FastLED.setBrightness( (int) (ledBrightness*255/100));
+                        }
+                        //No error testing for the following??? in general this whole function sets a
+                        //bunch of globals. Not exactly best practice.
+                        ledGroupStates[selectedGroup].color = color;
+                        setLedMode( selectedGroup, i);
+                        FastLED.show(); //is this necessary or desired?
                         break;
 
                     }
@@ -1753,7 +2196,7 @@ int interpretLedCommandString( String commandString)
                 {
                     value = 255;
                 }
-                ledColor.r = value;
+                color.r = value;
                 snprintf( tempStr, lenTempStr, "Red: %d", value);
                 //Serial.println(tempStr);
                 break;
@@ -1763,7 +2206,7 @@ int interpretLedCommandString( String commandString)
                 {
                     value = 255;
                 }
-                ledColor.b = value;
+                color.b = value;
                 snprintf( tempStr, lenTempStr, "Blue: %d", value);
                 //Serial.println(tempStr);
                 break;
@@ -1773,7 +2216,7 @@ int interpretLedCommandString( String commandString)
                 {
                     value = 255;
                 }
-                ledColor.g = value;
+                color.g = value;
                 snprintf( tempStr, lenTempStr, "Green: %d", value);
                 //Serial.println(tempStr);
                 break;
@@ -1788,6 +2231,7 @@ int interpretLedCommandString( String commandString)
         }
         command = commandString.charAt( ptr);
     }
+
     //Serial.println("Done");
     return 0; // good command
 }
@@ -1802,22 +2246,28 @@ void ledSetup ()
     setupAllLedFSMs();
     stopAllLedFSMs();
 
+    setupAllLedGroupFSMs();
+    stopAllLedGroupFSMs();
+    //Serial.printf("setup color:%X\r\n", (ledGroupStates[0].color.r<<16)+(ledGroupStates[0].color.g<<8)+ledGroupStates[0].color.b);
+
     // setup for web controls
     Particle.function ("ledControl", interpretLedCommandString);
     //Particle.function ("ledColor", ledColorFunction);
     //Particle.function ("ledMode", ledModeFunction);
     //Particle.function ("ledSpeed", ledSpeedFunction);
     //Particle.function ("ledDirection", ledDirectionFunction);
-    //setLEDMode( quadFlasher);
-    //setLEDMode( quadFlasher2);
+    //setLedMode( quadFlasher);
+    //setLedMode( quadFlasher2);
 
-    // setup group 1
+    // setup group 0
     ledGroupStates[0].numLeds = NUM_LEDS;
     for (int i = 0; i < NUM_LEDS; i++)
     {
         ledGroupStates[0].members[i] = i;
     }
-    setLEDMode( 0, clockFace);
+    //Serial.printf("setup color:%X\r\n", (ledGroupStates[0].color.r<<16)+(ledGroupStates[0].color.g<<8)+ledGroupStates[0].color.b);
+    setLedMode( 0, clockFace);
+    //Serial.printf("setup color:%X\r\n", (ledGroupStates[0].color.r<<16)+(ledGroupStates[0].color.g<<8)+ledGroupStates[0].color.b);
 }
 
 
@@ -1846,7 +2296,7 @@ void ledLoop() // handle LED effects
         case fadeToTarget:
             if( millis() - lastEffectTime >= effectTime)
             {
-                if (FastLED.getBrightness() < LEDbrightness)
+                if (FastLED.getBrightness() < ledBrightness)
                 {
                     FastLED.setBrightness( FastLED.getBrightness() + 1);
                 }
@@ -1873,16 +2323,18 @@ void ledLoop() // handle LED effects
             }
             break;
 
-        case breathe:
+/*
+        case breatheEffect:
             if( millis() - lastEffectTime >= effectTime)
             {
-                FastLED.setBrightness( (int) min(255, ((LEDbrightness *
+                FastLED.setBrightness( (int) min(255, ((ledBrightness *
                         quadwave8( breathIndex) / 100)+ledBias)));
                 breathIndex = breathIndex + breathStep;
                 FastLED.show();
                 lastEffectTime = millis();
             }
             break;
+*/
 
         case twinkle:
             if( millis() - lastEffectTime >=effectTime)
@@ -2181,9 +2633,8 @@ void setup()
 
 
     lastEffectTime = millis();
-    LEDbrightness = 1;
-    FastLED.setBrightness( (int) (LEDbrightness*255/100));
-    breathIndex = 0;
+    ledBrightness = 1;
+    FastLED.setBrightness( (int) (ledBrightness*255/100));
 
     ledSetup();
 }

@@ -1,9 +1,20 @@
 /* javascript for Photo Ring Control */
 /* process the button clicks into form submits */
+
+function findSelection(field) {
+    var test = document.getElementsByName(field);
+    var sizes = test.length;
+    for (i=0; i < sizes; i++) {
+       if (test[i].checked==true) {
+           return test[i].value;
+       }
+    }
+}
+
 function handleSelect () {
     // download everything everytime (for now)
     on = arg.value;
-    onOff = document.getElementById("onOff").value;
+    onOff = findSelection("onOff");
     mode = document.getElementById("mode").value;
     brightness = document.getElementById("brightness").value;
     color = document.getElementById("color").value;

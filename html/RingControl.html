@@ -19,13 +19,14 @@
             <input type="radio" id="onOff" name="onOff" value="n" onChange="handleSelect();">Turn the LEDs on.
         </li>
         <li>
-            <input type="radio" id="onOff" name="onOff" value="f" onChange="handleSelect(); checked">Turn the LEDs off.
+            <input type="radio" id="onOff" name="onOff" value="f" onChange="handleSelect();" checked>Turn the LEDs off.
         </li>
         <li>
             <label for="mode">Mode</label>
             <select id="mode" name="mode" onChange="handleSelect();">
                 <option value="offMode" selected>Please choose</option>
                 <option value="offMode">Off</option>
+                <option value="demo1">Demo 1</option>
                 <option value="singleColor">Single Color</option>
                 <option value="staticMultiColor">Multi Color</option>
                 <option value="twinklingMultiColor">Twinkling Multi Color</option>
